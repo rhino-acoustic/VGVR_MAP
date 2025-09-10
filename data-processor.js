@@ -544,18 +544,37 @@ class DataProcessor {
   async generateAllRegionalSvgs() {
     const generatedSvgs = [];
     
+    console.log(`🚀 SVG 생성 시작: ${this.regionData.length}개 지역`);
+    
     for (let index = 0; index < this.regionData.length; index++) {
       const region = this.regionData[index];
-      const svgContent = await this.generateRegionalSvg(region);
-      const fileName = this.generateFileName(region, index);
       
-      generatedSvgs.push({
-        fileName: fileName,
-        content: svgContent,
-        regionInfo: region
-      });
+      try {
+        console.log(`📝 SVG 생성 중: ${region.팀명 || region.지역 || `지역${index}`} (${index + 1}/${this.regionData.length})`);
+        
+        const svgContent = await this.generateRegionalSvg(region);
+        const fileName = this.generateFileName(region, index);
+        
+        generatedSvgs.push({
+          fileName: fileName,
+          content: svgContent,
+          regionInfo: region
+        });
+        
+        console.log(`✅ SVG 생성 완료: ${region.팀명 || region.지역 || `지역${index}`}`);
+        
+      } catch (error) {
+        console.error(`❌ SVG 생성 실패: ${region.팀명 || region.지역 || `지역${index}`}`, error);
+        // 실패한 것도 빈 SVG로라도 추가해서 전체 프로세스가 중단되지 않도록
+        generatedSvgs.push({
+          fileName: this.generateFileName(region, index),
+          content: '<svg>오류 발생</svg>',
+          regionInfo: region
+        });
+      }
     }
-
+    
+    console.log(`🎉 전체 SVG 생성 완료: ${generatedSvgs.length}개`);
     return generatedSvgs;
   }
 
@@ -608,12 +627,8 @@ class DataProcessor {
       // 간단한 구현을 위해 puppeteer 사용
       const puppeteer = require('puppeteer');
       
-      // Vercel 환경에서는 PNG 변환 건너뛰기 (용량 제한)
-      if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-        console.log('⚠️ Vercel/Production 환경: PNG 변환을 건너뜁니다 (용량 제한)');
-        console.log(`📄 SVG 파일만 생성됨: ${regionInfo.팀명 || regionInfo.지역 || 'unknown'}`);
-        return;
-      }
+      // PNG 변환 시작 (모든 환경에서 활성화)
+      console.log(`🚀 PNG 변환 시작: ${regionInfo.팀명 || regionInfo.지역 || 'unknown'}`);
       
       // 로컬 환경에서만 PNG 변환
       const browser = await puppeteer.launch({
@@ -722,8 +737,15 @@ class DataProcessor {
       
       await page.setContent(finalHtmlContent);
       
-      // 간단한 폰트 로딩 대기 (타임아웃 방지)
-      await page.waitForTimeout(3000);
+      // 폰트 및 이미지 로딩 충분한 대기 시간 (3분 타임아웃 대비)
+      await page.waitForTimeout(10000);
+      
+      // 추가로 네트워크 아이들 상태까지 기다리기 (Puppeteer)
+      try {
+        await page.waitForNetworkIdle({ timeout: 30000, idleTime: 2000 });
+      } catch (e) {
+        console.log('⚠️ 네트워크 아이들 대기 타임아웃, 계속 진행');
+      }
       
       console.log('✅ 폰트 로딩 대기 완료');
       
