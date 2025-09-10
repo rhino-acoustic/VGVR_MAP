@@ -21,21 +21,30 @@ export default async function handler(req, res) {
 
   try {
     console.log('🚀 Vercel에서 PNG 이미지 생성 요청을 받았습니다...');
+    console.log('📊 환경: Vercel =', !!process.env.VERCEL, ', Node =', process.version);
     
     const processor = new DataProcessor();
+    
+    console.log('📊 Google Sheets 데이터 로드 시작...');
     const success = await processor.loadGoogleSheetsData();
+    console.log('📊 Google Sheets 데이터 로드 결과:', success);
     
     if (success) {
+      console.log('🎨 이미지 생성 시작...');
       const result = await processor.generateAllImages();
+      console.log('🎨 이미지 생성 결과:', result);
+      
       if (result.success) {
         return res.status(200).json({
           success: true,
           message: '이미지 생성이 완료되었습니다.',
           files: result.generatedFiles || 0,
+          details: result.details || 'No details',
           timestamp: new Date().toISOString()
         });
       } else {
-        throw new Error(result.error);
+        console.error('❌ 이미지 생성 실패:', result.error);
+        throw new Error(result.error || '이미지 생성 실패');
       }
     } else {
       throw new Error('Google Sheets 데이터 로드 실패');
