@@ -34,7 +34,8 @@ app.post('/api/generate-images', async (req, res) => {
         res.json({
           success: true,
           message: '이미지 생성이 완료되었습니다.',
-          files: result.generatedFiles || 0
+          files: result.generatedFiles || 0,
+          generatedFiles: result.generatedFiles || 0
         });
       } else {
         throw new Error(result.error);

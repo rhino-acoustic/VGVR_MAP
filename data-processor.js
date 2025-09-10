@@ -20,7 +20,10 @@ class DataProcessor {
         : path.join(__dirname, 'Frame 3.svg');
       
       this.svgTemplate = fs.readFileSync(svgPath, 'utf8');
-      console.log('SVG 템플릿이 성공적으로 로드되었습니다.');
+      
+      // 템플릿 로딩 시점에서 모든 HTML 엔티티 제거 (Sharp 파싱 오류 방지)
+      this.svgTemplate = this.svgTemplate.replace(/&#\d+;/g, '');
+      console.log('SVG 템플릿이 성공적으로 로드되었습니다 (HTML 엔티티 정리 완료).');
       return true;
     } catch (error) {
       console.error('SVG 템플릿 로드 실패:', error);
@@ -165,11 +168,13 @@ class DataProcessor {
   async loadGoogleSheetsData(spreadsheetIdOrUrl, range = 'A1:Z50') {
     try {
       // 매개변수가 없으면 환경변수에서 가져오기
-      const targetSpreadsheetId = spreadsheetIdOrUrl || process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+      const targetSpreadsheetId = spreadsheetIdOrUrl || process.env.GOOGLE_SHEETS_SPREADSHEET_ID || '1IvnBd4cr81HDzEY-AZYeB8g5ogPsWT0Vjhf_0WWAzQ0';
       
       if (!targetSpreadsheetId) {
         throw new Error('Google Sheets 스프레드시트 ID가 설정되지 않았습니다. 환경변수 GOOGLE_SHEETS_SPREADSHEET_ID를 확인해주세요.');
       }
+      
+      console.log(`📊 사용할 스프레드시트 ID: ${targetSpreadsheetId}`);
       
       const spreadsheetId = this.googleSheets.extractSpreadsheetId(targetSpreadsheetId);
       const data = await this.googleSheets.getSheetData(spreadsheetId, range);
@@ -239,7 +244,7 @@ class DataProcessor {
   }
 
   // 지도 이미지 생성 및 별도 저장 (특이사항 포함)
-  generateMapImage(coordinates, specialNotes = '', teamName = 'unknown') {
+  async generateMapImage(coordinates, specialNotes = '', teamName = 'unknown') {
     if (!coordinates) return null;
     
     try {
@@ -256,10 +261,8 @@ class DataProcessor {
       const mapType = 'roadmap';
       
       // Google Maps Static API URL 생성
-      // API 키가 없어도 일부 요청은 작동하지만, 제한이 있음
       const apiKey = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyCOxHoHE_GF2NAJxaUFzPo9fbIQKG7upes';
       
-      // Google Maps Static API URL 생성 (API 활성화됨)
       const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?` +
         `center=${lat},${lng}&` +
         `zoom=${zoom}&` +
@@ -271,19 +274,40 @@ class DataProcessor {
         (apiKey ? `&key=${apiKey}` : '');
       
       console.log(`🗺️ Google Maps Static API URL 생성: ${teamName} (${lat}, ${lng}) -> 크기: ${mapWidth}x${mapHeight}`);
-      
-      // Vercel 서버리스 환경에서는 파일 시스템 쓰기 불가
-      // 지도 이미지는 SVG 내에서 직접 참조만 하고, 별도 저장하지 않음
-      console.log(`🗺️ 지도 이미지 URL 생성 완료: ${teamName} (${lat}, ${lng})`);
       console.log(`📍 지도 URL: ${mapUrl}`);
       
+      // Google Maps 이미지를 다운로드해서 base64로 인코딩
+      let base64Image = '';
+      try {
+        const response = await fetch(mapUrl);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          base64Image = `data:image/png;base64,${buffer.toString('base64')}`;
+          console.log(`✅ Google Maps 이미지 다운로드 완료: ${teamName} (${(buffer.length / 1024).toFixed(1)}KB)`);
+        } else {
+          console.log(`⚠️ Google Maps 이미지 다운로드 실패: ${response.status} - ${teamName}`);
+        }
+      } catch (downloadError) {
+        console.log(`❌ Google Maps 이미지 다운로드 오류: ${downloadError.message} - ${teamName}`);
+      }
+
       return `
         <g id="map-section">
           <!-- 지도 배경 -->
           <rect x="430" y="0" width="570" height="1000" fill="#E8F4F8"/>
           
-          <!-- Google Maps 이미지 -->
-          <image x="430" y="0" width="${mapWidth}" height="${mapHeight}" href="${mapUrl}" preserveAspectRatio="xMidYMid slice"/>
+          ${base64Image ? `
+          <!-- Google Maps 이미지 (base64) -->
+          <image x="430" y="0" width="${mapWidth}" height="${mapHeight}" href="${base64Image}" preserveAspectRatio="xMidYMid slice"/>
+          ` : `
+          <!-- 지도 로드 실패 시 좌표 정보 표시 -->
+          <rect x="440" y="10" width="550" height="100" fill="rgba(255,255,255,0.9)" stroke="#333" stroke-width="1" rx="5"/>
+          <text x="465" y="35" font-family="Freesentation, Arial, sans-serif" font-size="16" font-weight="600" fill="#333">📍 지도 위치</text>
+          <text x="465" y="55" font-family="Freesentation, Arial, sans-serif" font-size="14" font-weight="500" fill="#666">위도: ${coordinates.split(',')[0]}</text>
+          <text x="465" y="75" font-family="Freesentation, Arial, sans-serif" font-size="14" font-weight="500" fill="#666">경도: ${coordinates.split(',')[1]}</text>
+          <text x="465" y="95" font-family="Freesentation, Arial, sans-serif" font-size="12" font-weight="400" fill="#999">${teamName} 집합장소</text>
+          `}
           
                    ${specialNotes ? `
                    <!-- P열 특이사항 (지도 하단 오버레이) -->
@@ -353,18 +377,26 @@ class DataProcessor {
 
     let modifiedSvg = this.svgTemplate;
     
+    // 문제가 되는 모든 HTML 엔티티 요소들 제거 (Sharp 파싱 오류 방지)
+    modifiedSvg = modifiedSvg.replace(/<[^>]*&#[^>]*>/g, '');
+    
     // 기존 한글 path 요소들 완전 제거 (더 깔끔한 텍스트로 교체하기 위해)
-    // ID로 정확히 매칭해서 제거
-    modifiedSvg = modifiedSvg.replace(/<path id="&#236;&#154;&#169;&#236;&#157;&#184;&#237;&#140;&#128;"[^>]*>[^<]*<\/path>/g, '');
-    modifiedSvg = modifiedSvg.replace(/<path id="&#236;&#154;&#169;&#236;&#157;&#184;&#237;&#140;&#128;"[^>]*\/>/g, '');
-    modifiedSvg = modifiedSvg.replace(/<path id="&#236;&#155;&#148;&#236;&#154;&#148;&#236;&#157;&#188; &#236;&#152;&#164;&#237;&#155;&#132; 7:40"[^>]*>[^<]*<\/path>/g, '');
-    modifiedSvg = modifiedSvg.replace(/<path id="&#236;&#155;&#148;&#236;&#154;&#148;&#236;&#157;&#188; &#236;&#152;&#164;&#237;&#155;&#132; 7:40"[^>]*\/>/g, '');
+    modifiedSvg = modifiedSvg.replace(/<path[^>]*id="[^"]*"[^>]*>[^<]*<\/path>/g, '');
+    modifiedSvg = modifiedSvg.replace(/<path[^>]*id="[^"]*"[^>]*\/>/g, '');
     
     // 왼쪽 영역의 모든 path 요소 제거 (좌표가 430 이하인 것들)
     modifiedSvg = modifiedSvg.replace(/<path[^>]*d="M[12][0-9][0-9][^"]*"[^>]*fill="black"[^>]*\/>/g, '');
     
-    // 기존 VEGAVERY 그룹 전체 제거
-    modifiedSvg = modifiedSvg.replace(/<g id="VEGAVERY">[\s\S]*?<\/g>/g, '');
+    // 기존 VEGAVERY 그룹 전체 제거 (더 정확한 패턴)
+    modifiedSvg = modifiedSvg.replace(/<g id="VEGAVERY"[^>]*>[\s\S]*?<\/g>/g, '');
+    
+    // 혹시 남은 닫는 g 태그들도 정리
+    const orphanedClosingG = (modifiedSvg.match(/<\/g>/g) || []).length - (modifiedSvg.match(/<g[^>]*>/g) || []).length;
+    if (orphanedClosingG > 0) {
+      for (let i = 0; i < orphanedClosingG; i++) {
+        modifiedSvg = modifiedSvg.replace(/<\/g>/, '');
+      }
+    }
     
     // 왼쪽 내용 영역 업데이트 (x=0~430 영역)
     
@@ -513,7 +545,7 @@ class DataProcessor {
     `;
 
     // 9. 오른쪽 지도 영역 업데이트 - I열 좌표 사용, P열 특이사항 포함
-    const mapImage = this.generateMapImage(regionInfo.좌표, regionInfo.특이사항, teamName);
+    const mapImage = await this.generateMapImage(regionInfo.좌표, regionInfo.특이사항, teamName);
     
     // 먼저 기존 배경 이미지 제거
     modifiedSvg = modifiedSvg.replace(/<image[^>]*id="image0_50_49"[^>]*>/g, '');
@@ -532,6 +564,20 @@ class DataProcessor {
     }
     console.log('🖼️ 전체 SVG에 2px 검정 테두리 추가 완료');
 
+    // SVG 구조 검증 (디버그)
+    const svgStartCount = (modifiedSvg.match(/<svg[^>]*>/g) || []).length;
+    const svgEndCount = (modifiedSvg.match(/<\/svg>/g) || []).length;
+    const gStartCount = (modifiedSvg.match(/<g[^>]*>/g) || []).length;
+    const gEndCount = (modifiedSvg.match(/<\/g>/g) || []).length;
+    
+    console.log(`🔍 SVG 구조 검증: svg 시작(${svgStartCount}) vs 끝(${svgEndCount}), g 시작(${gStartCount}) vs 끝(${gEndCount})`);
+    
+    if (svgStartCount !== svgEndCount || gStartCount !== gEndCount) {
+      console.error(`❌ SVG 구조 불일치 발견! 팀명: ${regionInfo.팀명}`);
+      // 첫 500자만 출력해서 구조 확인
+      console.log('SVG 시작 부분:', modifiedSvg.substring(0, 500));
+      console.log('SVG 끝 부분:', modifiedSvg.substring(modifiedSvg.length - 500));
+    }
 
     // 6. 오른쪽 지도 영역은 그대로 유지 (좌표 기반)
     // 필요시 지도 이미지를 다른 이미지로 교체할 수 있음
@@ -627,6 +673,46 @@ class DataProcessor {
     return savedFiles;
   }
 
+  // 간단한 SVG를 PNG로 변환 (2개 매개변수)
+  async convertSvgToPngSimple(svgContent, pngPath) {
+    try {
+      console.log(`🚀 PNG 변환 시작 (Sharp): ${path.basename(pngPath)}`);
+      
+      // SVG 내용을 정리하여 Sharp가 파싱할 수 있도록 수정
+      let cleanedSvg = svgContent;
+      
+      // XML 헤더가 없으면 추가
+      if (!cleanedSvg.includes('<?xml')) {
+        cleanedSvg = '<?xml version="1.0" encoding="UTF-8"?>\n' + cleanedSvg;
+      }
+      
+      // 문제가 되는 HTML 엔티티와 속성을 정리
+      cleanedSvg = cleanedSvg.replace(/&#\d+;/g, '');
+      
+      // 문제가 되는 rect 요소 완전 제거 (HTML 엔티티가 포함된)
+      cleanedSvg = cleanedSvg.replace(/<rect id="[^"]*&#[^"]*"[^>]*>/g, '');
+      
+      // 빈 줄들 정리
+      cleanedSvg = cleanedSvg.replace(/^\s*\n/gm, '');
+      
+      await sharp(Buffer.from(cleanedSvg, 'utf8'))
+        .png({
+          quality: 95,
+          compressionLevel: 6
+        })
+        .resize(1000, 1000, {
+          fit: 'contain',
+          background: { r: 255, g: 255, b: 255, alpha: 1 }
+        })
+        .toFile(pngPath);
+      
+      console.log(`✅ PNG 변환 성공: ${path.basename(pngPath)}`);
+    } catch (error) {
+      console.error(`Sharp PNG 변환 실패: ${error}`);
+      throw error;
+    }
+  }
+
   // SVG를 PNG로 변환하는 메소드 (Sharp 사용)
   async convertSvgToPng(svgContent, regionInfo, svgFileName) {
     try {
@@ -667,10 +753,116 @@ class DataProcessor {
     }
   }
 
+  // 모든 이미지 생성 (SVG + PNG)
+  async generateAllImages() {
+    try {
+      console.log('🎨 모든 이미지 생성을 시작합니다...');
+      
+      if (!this.regionData || this.regionData.length === 0) {
+        throw new Error('생성할 데이터가 없습니다. loadGoogleSheetsData()를 먼저 호출하세요.');
+      }
+
+      // SVG 템플릿 로드
+      if (!this.loadSvgTemplate()) {
+        throw new Error('SVG 템플릿 로드에 실패했습니다.');
+      }
+
+      const generatedFiles = [];
+      const outputDir = path.join(__dirname, 'generated-png');
+
+      // 출력 디렉토리 생성
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+        console.log(`📁 출력 디렉토리 생성: ${outputDir}`);
+      }
+
+      // 각 팀별로 이미지 생성
+      for (let i = 0; i < this.regionData.length; i++) {
+        const regionData = this.regionData[i];
+        console.log(`🎨 ${i + 1}/${this.regionData.length}: ${regionData.팀명} 이미지 생성 중...`);
+
+        try {
+          // SVG 생성
+          const svgContent = await this.generateRegionalSvg(regionData);
+          
+          // PNG 변환 (안전한 파일명 생성)
+          const safeTeamName = (regionData.팀명 || 'unknown').toString().replace(/[^a-zA-Z0-9가-힣]/g, '_');
+          const pngFileName = `${safeTeamName}.png`;
+          const pngPath = path.join(outputDir, pngFileName);
+          
+          try {
+            await this.convertSvgToPngSimple(svgContent, pngPath);
+            
+            // 파일이 실제로 생성되었는지 확인
+            if (fs.existsSync(pngPath)) {
+              const stats = fs.statSync(pngPath);
+              if (stats.size > 0) {
+                generatedFiles.push({
+                  teamName: regionData.팀명,
+                  fileName: pngFileName,
+                  path: pngPath
+                });
+                console.log(`✅ ${regionData.팀명} 이미지 생성 완료: ${pngFileName} (${(stats.size / 1024).toFixed(1)}KB)`);
+              } else {
+                console.error(`❌ ${regionData.팀명} 파일이 비어있음: ${pngFileName}`);
+              }
+            } else {
+              console.error(`❌ ${regionData.팀명} 파일 생성 실패: ${pngFileName}`);
+            }
+          } catch (sharpError) {
+            console.error(`⚠️ ${regionData.팀명} Sharp 오류:`, sharpError.message);
+            
+            // Sharp 오류 발생 시 SVG 내용을 파일로 저장해서 디버깅
+            const debugSvgPath = path.join(outputDir, `debug_${regionData.팀명}.svg`);
+            try {
+              fs.writeFileSync(debugSvgPath, svgContent, 'utf8');
+              console.log(`🔍 디버그용 SVG 저장: ${debugSvgPath}`);
+            } catch (writeError) {
+              console.error(`SVG 디버그 파일 저장 실패:`, writeError.message);
+            }
+            
+            // Sharp 오류가 발생해도 파일이 생성되었는지 확인
+            if (fs.existsSync(pngPath)) {
+              const stats = fs.statSync(pngPath);
+              if (stats.size > 0) {
+                generatedFiles.push({
+                  teamName: regionData.팀명,
+                  fileName: pngFileName,
+                  path: pngPath
+                });
+                console.log(`✅ ${regionData.팀명} 이미지 생성 완료 (Sharp 경고 무시): ${pngFileName} (${(stats.size / 1024).toFixed(1)}KB)`);
+              }
+            }
+          }
+          
+        } catch (error) {
+          console.error(`❌ ${regionData.팀명} 이미지 생성 실패:`, error.message);
+        }
+      }
+
+      console.log(`🎉 이미지 생성 완료! 총 ${generatedFiles.length}개 파일 생성`);
+      
+      return {
+        success: true,
+        generatedFiles: generatedFiles.length,
+        files: generatedFiles,
+        message: `${generatedFiles.length}개의 PNG 이미지가 생성되었습니다.`
+      };
+
+    } catch (error) {
+      console.error('❌ 전체 이미지 생성 실패:', error);
+      return {
+        success: false,
+        error: error.message,
+        generatedFiles: 0
+      };
+    }
+  }
+
   // 데이터 해시 생성 (변경 감지용)
   generateDataHash() {
     try {
-      const dataString = JSON.stringify(this.data);
+      const dataString = JSON.stringify(this.regionData);
       const crypto = require('crypto');
       return crypto.createHash('md5').update(dataString).digest('hex');
     } catch (error) {
