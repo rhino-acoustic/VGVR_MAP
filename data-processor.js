@@ -222,8 +222,8 @@ class DataProcessor {
       this.regionData = filteredData;
       console.log(`✅ Google Sheets에서 ${filteredData.length}개의 지역 데이터를 로드했습니다.`);
       
-      // 백업용으로 CSV 파일도 저장
-      await this.googleSheets.saveAsCSV(filteredData, 'google-sheets-backup.csv');
+      // Vercel 환경에서는 파일 저장 불가 - 메모리에서만 처리
+      console.log(`📊 데이터 처리 완료: ${filteredData.length}개 지역`);
       
       return filteredData;
     } catch (error) {
@@ -266,34 +266,10 @@ class DataProcessor {
       
       console.log(`🗺️ Google Maps Static API URL 생성: ${teamName} (${lat}, ${lng}) -> 크기: ${mapWidth}x${mapHeight}`);
       
-      // 지도 이미지를 별도로 저장해서 확인
-      try {
-        const https = require('https');
-const fs = require('fs');
-const path = require('path');
-// Canvas 제거됨 - Puppeteer만 사용
-        
-        const mapDir = path.join(__dirname, 'map-images');
-        if (!fs.existsSync(mapDir)) {
-          fs.mkdirSync(mapDir, { recursive: true });
-        }
-        
-        const fileName = `${teamName.replace(/[^a-zA-Z0-9가-힣]/g, '_')}_map.png`;
-        const filePath = path.join(mapDir, fileName);
-        
-        const file = fs.createWriteStream(filePath);
-        https.get(mapUrl, (response) => {
-          response.pipe(file);
-          file.on('finish', () => {
-            file.close();
-            console.log(`🗺️ 지도 이미지 저장됨: ${fileName}`);
-          });
-        }).on('error', (err) => {
-          console.error(`❌ 지도 이미지 다운로드 실패: ${err.message}`);
-        });
-      } catch (error) {
-        console.error(`❌ 지도 이미지 저장 실패: ${error.message}`);
-      }
+      // Vercel 서버리스 환경에서는 파일 시스템 쓰기 불가
+      // 지도 이미지는 SVG 내에서 직접 참조만 하고, 별도 저장하지 않음
+      console.log(`🗺️ 지도 이미지 URL 생성 완료: ${teamName} (${lat}, ${lng})`);
+      console.log(`📍 지도 URL: ${mapUrl}`);
       
       return `
         <g id="map-section">
@@ -595,32 +571,28 @@ const path = require('path');
     return `${safeName}_${Date.now()}_${index}.svg`;
   }
 
-  // 생성된 SVG들을 파일로 저장
+  // 생성된 SVG들을 메모리에서 처리하고 PNG로 변환
   async saveSvgsToFiles(outputDir = 'generated-maps') {
-    // 출력 디렉토리 생성
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
+    // Vercel 환경에서는 SVG 파일 저장 없이 바로 PNG 변환
+    console.log('🚀 Vercel 환경: 메모리에서 직접 PNG 변환 시작');
 
     const svgs = await this.generateAllRegionalSvgs();
     const savedFiles = [];
 
     for (const svg of svgs) {
-      const filePath = path.join(outputDir, svg.fileName);
-      
       try {
-        fs.writeFileSync(filePath, svg.content);
+        // SVG 파일 저장 없이 바로 PNG 변환
+        console.log(`🔄 PNG 변환 중: ${svg.regionInfo.팀명}`);
+        await this.convertSvgToPng(svg.content, svg.regionInfo, svg.fileName);
+        
         savedFiles.push({
           fileName: svg.fileName,
-          filePath: filePath,
-          regionInfo: svg.regionInfo
+          regionInfo: svg.regionInfo,
+          status: 'png_converted'
         });
-        console.log(`저장됨: ${svg.fileName}`);
-
-        // PNG로도 저장
-        await this.convertSvgToPng(svg.content, svg.regionInfo, svg.fileName);
+        
       } catch (error) {
-        console.error(`파일 저장 실패 ${svg.fileName}:`, error);
+        console.error(`PNG 변환 실패 ${svg.fileName}:`, error);
       }
     }
 
@@ -747,10 +719,15 @@ const path = require('path');
       
       console.log('✅ 폰트 로딩 대기 완료');
       
-      // 고정된 파일명으로 PNG 저장 (타임스탬프 없이)
+      // 고정된 파일명으로 PNG 저장 (Vercel 환경 고려)
       const teamName = regionInfo.팀명 || regionInfo.지역 || 'unknown';
       const pngFileName = `${teamName.replace(/[^a-zA-Z0-9가-힣]/g, '_')}.png`;
-      const pngDir = path.join(__dirname, 'generated-png');
+      
+      // Vercel 환경에서는 /tmp 디렉토리 사용, 로컬에서는 generated-png 사용
+      const pngDir = process.env.VERCEL 
+        ? '/tmp/generated-png'
+        : path.join(__dirname, 'generated-png');
+        
       if (!fs.existsSync(pngDir)) {
         fs.mkdirSync(pngDir, { recursive: true });
       }

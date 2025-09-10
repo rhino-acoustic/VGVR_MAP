@@ -132,7 +132,10 @@ app.post('/api/generate-from-sheets', async (req, res) => {
 // PNG 파일 목록 API
 app.get('/api/png-files', (req, res) => {
   try {
-    const pngDir = path.join(__dirname, 'generated-png');
+    // Vercel 환경에서는 /tmp 디렉토리 사용
+    const pngDir = process.env.VERCEL 
+      ? '/tmp/generated-png'
+      : path.join(__dirname, 'generated-png');
     
     if (!fs.existsSync(pngDir)) {
       return res.json([]);
@@ -157,7 +160,11 @@ app.get('/api/png-files', (req, res) => {
 });
 
 // PNG 파일 정적 서빙
-app.use('/generated-png', express.static(path.join(__dirname, 'generated-png')));
+// PNG 파일 정적 서빙 (Vercel 환경 고려)
+const pngStaticDir = process.env.VERCEL 
+  ? '/tmp/generated-png'
+  : path.join(__dirname, 'generated-png');
+app.use('/generated-png', express.static(pngStaticDir));
 
 app.listen(PORT, () => {
   console.log(`🌐 서버가 포트 ${PORT}에서 실행 중입니다.`);
