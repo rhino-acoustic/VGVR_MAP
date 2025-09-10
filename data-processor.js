@@ -15,7 +15,7 @@ class DataProcessor {
   // SVG 템플릿 로드
   loadSvgTemplate() {
     try {
-      this.svgTemplate = fs.readFileSync('Frame 3.svg', 'utf8');
+      this.svgTemplate = fs.readFileSync(path.join(__dirname, 'Frame 3.svg'), 'utf8');
       console.log('SVG 템플릿이 성공적으로 로드되었습니다.');
       return true;
     } catch (error) {
@@ -453,7 +453,7 @@ const path = require('path');
       // 2줄일 때는 첫 번째 줄을 위로 올려서 균형 맞추기
       const firstLineY = placeLine2 ? yPos - 22 : yPos;
       
-      const placeText1 = `<text x="215" y="${firstLineY}" font-family="Freesentation, Arial, sans-serif" font-size="36" font-weight="700" text-anchor="middle" fill="black">${placeLine1}</text>`;
+      const placeText1 = `<text x="215" y="${firstLineY}" font-family="Freesentation, Arial, sans-serif" font-size="36" font-weight="700" text-anchor="middle" fill="black">📍 ${placeLine1}</text>`;
       modifiedSvg = modifiedSvg.replace(/<\/svg>/, placeText1 + '</svg>');
       yPos += 45;
       
@@ -493,7 +493,7 @@ const path = require('path');
       const [parkingLine1, parkingLine2, parkingLine3] = this.wrapText(regionInfo.주차장관련, 15, 3);
       
       if (parkingLine1) {
-        const parkingText1 = `<text x="215" y="${yPos}" font-family="Freesentation, Arial, sans-serif" font-size="28" font-weight="700" text-anchor="middle" fill="#333">${parkingLine1}</text>`;
+        const parkingText1 = `<text x="215" y="${yPos}" font-family="Freesentation, Arial, sans-serif" font-size="28" font-weight="700" text-anchor="middle" fill="#333">🚗 ${parkingLine1}</text>`;
         modifiedSvg = modifiedSvg.replace(/<\/svg>/, parkingText1 + '</svg>');
         yPos += 40; // 주차장명 행간 넓힘 (35->40)
       }

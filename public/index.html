@@ -543,9 +543,6 @@
                                 <img src="/generated-png/${file.fileName}" alt="${file.teamName}" class="png-image" />
                                 <div class="png-info">
                                     <h3>${file.teamName}</h3>
-                                    <button class="download-btn" onclick="downloadPng('${file.fileName}', '${file.teamName}')">
-                                        PNG 다운로드
-                                    </button>
                                 </div>
                             </div>
                         `).join('')}
@@ -563,25 +560,6 @@
             }
         }
 
-        // PNG 다운로드 함수
-        async function downloadPng(fileName, teamName) {
-            try {
-                const response = await fetch(`/generated-png/${fileName}`);
-                const blob = await response.blob();
-                
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${teamName}.png`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            } catch (error) {
-                console.error('PNG 다운로드 실패:', error);
-                alert('PNG 다운로드에 실패했습니다.');
-            }
-        }
     </script>
 </body>
 </html>
