@@ -768,7 +768,8 @@ class DataProcessor {
       }
 
       const generatedFiles = [];
-      const outputDir = path.join(__dirname, 'generated-png');
+      // 서버리스 환경에서는 /tmp 디렉토리 사용
+      const outputDir = process.env.VERCEL ? '/tmp/generated-png' : path.join(__dirname, 'generated-png');
 
       // 출력 디렉토리 생성
       if (!fs.existsSync(outputDir)) {

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+지금 분하고 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -610,20 +610,45 @@
                     return;
                 }
 
-                // PNG 이미지를 한 열로 나열
+                // PNG 이미지를 한 열로 나열 (Vercel 환경에서는 base64로 로드)
+                const imagePromises = data.files.map(async file => {
+                    try {
+                        const imageResponse = await fetch(`/api/get-image?filename=${file}`);
+                        const imageData = await imageResponse.json();
+                        
+                        if (imageData.success) {
+                            return `
+                                <div class="png-image-item">
+                                    <img src="${imageData.data}" alt="${file.replace('.png', '')}" class="png-image" />
+                                    <div class="png-info">
+                                        <h3>${file.replace('.png', '')}</h3>
+                                        <button onclick="downloadBase64('${imageData.data}', '${file.replace('.png', '')}')" class="download-btn">
+                                            PNG 다운로드
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            return `
+                                <div class="png-image-item">
+                                    <div class="error-placeholder">이미지 로드 실패: ${file}</div>
+                                </div>
+                            `;
+                        }
+                    } catch (error) {
+                        console.error(`이미지 로드 오류 (${file}):`, error);
+                        return `
+                            <div class="png-image-item">
+                                <div class="error-placeholder">이미지 로드 실패: ${file}</div>
+                            </div>
+                        `;
+                    }
+                });
+                
+                const imageHtmlArray = await Promise.all(imagePromises);
                 imageGrid.innerHTML = `
                     <div class="png-gallery">
-                        ${data.files.map(file => `
-                            <div class="png-image-item">
-                                <img src="/generated-png/${file}" alt="${file.replace('.png', '')}" class="png-image" />
-                                <div class="png-info">
-                                    <h3>${file.replace('.png', '')}</h3>
-                                    <button onclick="downloadPng('/generated-png/${file}', '${file.replace('.png', '')}')" class="download-btn">
-                                        PNG 다운로드
-                                    </button>
-                                </div>
-                            </div>
-                        `).join('')}
+                        ${imageHtmlArray.join('')}
                     </div>
                 `;
                 
@@ -640,7 +665,7 @@
             }
         }
 
-        // PNG 다운로드 함수
+        // PNG 다운로드 함수 (로컬 환경)
         async function downloadPng(url, fileName) {
             try {
                 const response = await fetch(url);
@@ -654,6 +679,21 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(downloadUrl);
+            } catch (error) {
+                console.error('다운로드 실패:', error);
+                alert('다운로드에 실패했습니다.');
+            }
+        }
+
+        // Base64 PNG 다운로드 함수 (Vercel 환경)
+        function downloadBase64(base64Data, fileName) {
+            try {
+                const a = document.createElement('a');
+                a.href = base64Data;
+                a.download = `${fileName}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
             } catch (error) {
                 console.error('다운로드 실패:', error);
                 alert('다운로드에 실패했습니다.');
