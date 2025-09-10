@@ -15,7 +15,12 @@ class DataProcessor {
   // SVG 템플릿 로드
   loadSvgTemplate() {
     try {
-      this.svgTemplate = fs.readFileSync(path.join(__dirname, 'Frame 3.svg'), 'utf8');
+      // Vercel 환경과 로컬 환경 모두 지원하는 경로 설정
+      const svgPath = process.env.VERCEL 
+        ? path.join(process.cwd(), 'Frame 3.svg')
+        : path.join(__dirname, 'Frame 3.svg');
+      
+      this.svgTemplate = fs.readFileSync(svgPath, 'utf8');
       console.log('SVG 템플릿이 성공적으로 로드되었습니다.');
       return true;
     } catch (error) {
