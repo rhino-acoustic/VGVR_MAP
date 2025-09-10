@@ -1,4 +1,14 @@
 export default async function handler(req, res) {
+  // CORS 헤더 설정
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // OPTIONS 요청 처리
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   try {
     console.log('🧪 Vercel 테스트 API 호출됨');
     
@@ -7,27 +17,19 @@ export default async function handler(req, res) {
       GOOGLE_MAPS_API_KEY: !!process.env.GOOGLE_MAPS_API_KEY,
       GOOGLE_SHEETS_SPREADSHEET_ID: !!process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
       GOOGLE_APPLICATION_CREDENTIALS_JSON: !!process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON,
-      VERCEL: process.env.VERCEL || 'undefined'
+      VERCEL: process.env.VERCEL || 'undefined',
+      NODE_ENV: process.env.NODE_ENV || 'undefined'
     };
     
     console.log('🔑 환경변수 체크:', envCheck);
-    
-    // Google Sheets 간단 테스트
-    const DataProcessor = require('../data-processor');
-    const processor = new DataProcessor();
-    
-    console.log('📊 DataProcessor 생성 완료');
-    
-    // 단순 SVG 템플릿 로드 테스트
-    const svgLoaded = processor.loadSvgTemplate();
-    console.log('📄 SVG 템플릿 로드:', svgLoaded);
     
     return res.status(200).json({
       success: true,
       message: 'Vercel 환경 테스트 성공',
       environment: envCheck,
-      svgTemplateLoaded: svgLoaded,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      url: req.url
     });
     
   } catch (error) {
@@ -36,7 +38,6 @@ export default async function handler(req, res) {
     return res.status(500).json({
       success: false,
       error: error.message,
-      stack: error.stack,
       timestamp: new Date().toISOString()
     });
   }
