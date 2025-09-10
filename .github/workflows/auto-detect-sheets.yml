@@ -1,0 +1,113 @@
+name: 🔄 Google Sheets 변경 감지 및 이미지 생성
+
+on:
+  # 매일 오전 4시, 오후 2시 (KST) 자동 실행
+  schedule:
+    - cron: '0 19 * * *'  # UTC 19:00 = KST 04:00
+    - cron: '0 5 * * *'   # UTC 05:00 = KST 14:00
+  
+  # 수동 트리거 허용
+  workflow_dispatch:
+    inputs:
+      force_generation:
+        description: '강제로 이미지 생성 (변경사항 무시)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  detect-and-generate:
+    runs-on: ubuntu-latest
+    name: 시트 변경 감지 및 이미지 생성
+    
+    steps:
+      - name: 🔍 시트 변경 감지 시작
+        run: |
+          echo "🔍 Google Sheets 변경 감지를 시작합니다..."
+          echo "⏰ 실행 시간: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+      
+      - name: 📊 Google Sheets 데이터 해시 생성
+        id: sheet-hash
+        run: |
+          # Google Sheets API를 통해 데이터 가져오기 및 해시 생성
+          SHEET_DATA=$(curl -s "https://sheets.googleapis.com/v4/spreadsheets/${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}/values/A1:Z50?key=${{ secrets.GOOGLE_MAPS_API_KEY }}")
+          CURRENT_HASH=$(echo "$SHEET_DATA" | sha256sum | cut -d' ' -f1)
+          echo "current_hash=$CURRENT_HASH" >> $GITHUB_OUTPUT
+          echo "📊 현재 시트 해시: $CURRENT_HASH"
+      
+      - name: 💾 이전 해시 가져오기
+        id: previous-hash
+        run: |
+          # GitHub API를 통해 이전 해시 가져오기 (Repository Variable 사용)
+          PREVIOUS_HASH=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/variables/LAST_SHEET_HASH" | \
+            jq -r '.value // "none"')
+          echo "previous_hash=$PREVIOUS_HASH" >> $GITHUB_OUTPUT
+          echo "💾 이전 시트 해시: $PREVIOUS_HASH"
+      
+      - name: 🔍 변경사항 확인
+        id: check-changes
+        run: |
+          CURRENT="${{ steps.sheet-hash.outputs.current_hash }}"
+          PREVIOUS="${{ steps.previous-hash.outputs.previous_hash }}"
+          FORCE="${{ github.event.inputs.force_generation }}"
+          
+          if [ "$CURRENT" != "$PREVIOUS" ] || [ "$FORCE" = "true" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "✅ 변경사항 감지됨 또는 강제 실행"
+            if [ "$FORCE" = "true" ]; then
+              echo "🔧 강제 실행 모드"
+            else
+              echo "📊 시트 데이터 변경 감지"
+            fi
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "⏸️ 변경사항 없음 - 이미지 생성 건너뜀"
+          fi
+      
+      - name: 🖼️ Vercel에서 이미지 생성 트리거
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          echo "🚀 Vercel API로 이미지 생성을 요청합니다..."
+          
+          RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            "https://vgvr-map.vercel.app/api/generate-images")
+          
+          echo "📋 응답: $RESPONSE"
+          
+          # 성공 여부 확인
+          SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
+          if [ "$SUCCESS" = "true" ]; then
+            echo "✅ 이미지 생성 성공!"
+            FILES=$(echo "$RESPONSE" | jq -r '.files // 0')
+            echo "📁 생성된 파일 수: $FILES"
+          else
+            echo "❌ 이미지 생성 실패"
+            ERROR=$(echo "$RESPONSE" | jq -r '.error // "알 수 없는 오류"')
+            echo "오류: $ERROR"
+            exit 1
+          fi
+      
+      - name: 💾 새로운 해시 저장
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          # Repository Variable 업데이트
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/variables/LAST_SHEET_HASH" \
+            -d '{"name":"LAST_SHEET_HASH","value":"${{ steps.sheet-hash.outputs.current_hash }}"}'
+          
+          echo "💾 새로운 해시 저장 완료: ${{ steps.sheet-hash.outputs.current_hash }}"
+      
+      - name: 📝 실행 결과 요약
+        run: |
+          echo "🏁 자동 감지 작업 완료"
+          echo "⏰ 완료 시간: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🔍 변경사항: ${{ steps.check-changes.outputs.has_changes }}"
+          if [ "${{ steps.check-changes.outputs.has_changes }}" = "true" ]; then
+            echo "✅ 이미지 생성 완료"
+          else
+            echo "⏸️ 변경사항 없어 생성 건너뜀"
+          fi
