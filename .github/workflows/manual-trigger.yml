@@ -1,0 +1,83 @@
+name: 🔧 VegaVery Map Generator - Manual Trigger
+
+on:
+  # 수동 실행만 가능
+  workflow_dispatch:
+    inputs:
+      action:
+        description: '실행할 작업'
+        required: true
+        type: choice
+        options:
+          - '이미지 생성'
+          - '상태 확인'
+          - '전체 테스트'
+        default: '이미지 생성'
+      
+      reason:
+        description: '실행 이유 (선택사항)'
+        required: false
+        default: '수동 테스트'
+
+jobs:
+  manual-execution:
+    name: 🛠️ 수동 작업 실행
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🚀 수동 실행 시작
+      run: |
+        echo "🔧 VegaVery Map Generator 수동 실행"
+        echo "📋 선택된 작업: ${{ github.event.inputs.action }}"
+        echo "📝 실행 이유: ${{ github.event.inputs.reason }}"
+        echo "⏰ 실행 시간: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+
+    - name: 🖼️ 이미지 생성 실행
+      if: github.event.inputs.action == '이미지 생성' || github.event.inputs.action == '전체 테스트'
+      run: |
+        echo "🖼️ 이미지 생성 작업 시작..."
+        
+        response=$(curl -s -w "\n%{http_code}" "https://vgvr-map.vercel.app/api/generate-images")
+        http_code=$(echo "$response" | tail -n1)
+        body=$(echo "$response" | head -n -1)
+        
+        echo "📊 HTTP 상태 코드: $http_code"
+        echo "📝 응답:"
+        echo "$body"
+        
+        if [ "$http_code" -eq 200 ]; then
+          echo "✅ 이미지 생성 성공!"
+        else
+          echo "❌ 이미지 생성 실패"
+          exit 1
+        fi
+
+    - name: 🔍 상태 확인
+      if: github.event.inputs.action == '상태 확인' || github.event.inputs.action == '전체 테스트'
+      run: |
+        echo "🔍 서비스 상태 확인 중..."
+        
+        # 메인 페이지 상태 확인
+        main_status=$(curl -s -o /dev/null -w "%{http_code}" "https://vgvr-map.vercel.app")
+        echo "🌐 메인 페이지 상태: $main_status"
+        
+        # 샘플 PNG 이미지 상태 확인
+        png_status=$(curl -s -o /dev/null -w "%{http_code}" "https://vgvr-map.vercel.app/generated-png/용인팀.png")
+        echo "🖼️ PNG 이미지 상태: $png_status"
+        
+        if [ "$main_status" -eq 200 ] && [ "$png_status" -eq 200 ]; then
+          echo "✅ 모든 서비스가 정상 작동 중!"
+        else
+          echo "⚠️ 일부 서비스에 문제가 있을 수 있습니다."
+        fi
+
+    - name: 📊 실행 결과 요약
+      run: |
+        echo "🎯 수동 실행 완료!"
+        echo "📋 실행된 작업: ${{ github.event.inputs.action }}"
+        echo "⏰ 완료 시간: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+        echo ""
+        echo "🔗 유용한 링크:"
+        echo "  • 메인 페이지: https://vgvr-map.vercel.app"
+        echo "  • Vercel 대시보드: https://vercel.com/rhino-acoustics-projects/vgvr-map"
+        echo "  • GitHub 저장소: https://github.com/rhino-acoustic/VGVR_MAP"

@@ -1,0 +1,32 @@
+{
+  "name": "vegavery-map-generator",
+  "version": "1.0.0",
+  "description": "Google Sheets 기반 팀별 지도 이미지 자동 생성기",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "echo 'No build step required'",
+    "vercel-build": "echo 'Build complete'"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "googleapis": "^126.0.1",
+    "csv-parser": "^3.0.0",
+    "puppeteer": "^21.3.6",
+    "sharp": "^0.32.6"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "keywords": [
+    "google-sheets",
+    "maps",
+    "image-generation",
+    "svg",
+    "png",
+    "automation"
+  ],
+  "author": "VegaVery Team",
+  "license": "MIT"
+}

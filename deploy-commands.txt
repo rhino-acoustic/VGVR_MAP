@@ -1,0 +1,25 @@
+# GitHub 저장소 연결 및 푸시 명령어
+
+# 1. GitHub에서 새 저장소 생성 (예: vegavery-maps)
+# 2. 아래 명령어 실행 (your-username을 실제 GitHub 사용자명으로 변경)
+
+git remote add origin https://github.com/your-username/vegavery-maps.git
+git branch -M main  
+git push -u origin main
+
+# 3. Vercel 배포
+# - https://vercel.com 접속
+# - "New Project" 클릭
+# - GitHub 저장소 선택 후 "Import"
+
+# 4. Vercel 환경변수 설정
+# Settings → Environment Variables에서 다음 추가:
+# GOOGLE_SHEETS_SPREADSHEET_ID=1BH-rKmO-wZ_your_spreadsheet_id
+# GOOGLE_MAPS_API_KEY=AIzaSyCOxHoHE_GF2NAJxaUFzPo9fbIQKG7upes
+# GOOGLE_APPLICATION_CREDENTIALS=./rhino-4483e-da5526cdd49f.json
+# NODE_ENV=production
+
+# 5. 배포 완료 후 PNG URL 확인
+# https://your-app.vercel.app/generated-png/용인팀.png
+# https://your-app.vercel.app/generated-png/구덕팀.png
+# ... 등등
