@@ -3,7 +3,6 @@ const csv = require('csv-parser');
 const path = require('path');
 const GoogleSheetsService = require('./google-sheets');
 const sharp = require('sharp');
-const puppeteer = require('puppeteer');
 
 class DataProcessor {
   constructor() {
@@ -165,7 +164,14 @@ class DataProcessor {
   // Google Sheets에서 데이터 읽기
   async loadGoogleSheetsData(spreadsheetIdOrUrl, range = 'A1:Z50') {
     try {
-      const spreadsheetId = this.googleSheets.extractSpreadsheetId(spreadsheetIdOrUrl);
+      // 매개변수가 없으면 환경변수에서 가져오기
+      const targetSpreadsheetId = spreadsheetIdOrUrl || process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+      
+      if (!targetSpreadsheetId) {
+        throw new Error('Google Sheets 스프레드시트 ID가 설정되지 않았습니다. 환경변수 GOOGLE_SHEETS_SPREADSHEET_ID를 확인해주세요.');
+      }
+      
+      const spreadsheetId = this.googleSheets.extractSpreadsheetId(targetSpreadsheetId);
       const data = await this.googleSheets.getSheetData(spreadsheetId, range);
       
       console.log('📋 첫 번째 행 데이터 (헤더):', Object.keys(data[0] || {}));
@@ -621,165 +627,55 @@ class DataProcessor {
     return savedFiles;
   }
 
-  // SVG를 PNG로 변환하는 메소드
+  // SVG를 PNG로 변환하는 메소드 (Sharp 사용)
   async convertSvgToPng(svgContent, regionInfo, svgFileName) {
     try {
-      // canvas 라이브러리 제거 - puppeteer만 사용
+      console.log(`🚀 PNG 변환 시작 (Sharp): ${regionInfo.팀명 || regionInfo.지역 || 'unknown'}`);
       
-      // SVG를 이미지로 변환 (svg2img 또는 sharp 라이브러리 필요)
-      // 간단한 구현을 위해 puppeteer 사용
-      const puppeteer = require('puppeteer');
-      
-      // PNG 변환 시작 (모든 환경에서 활성화)
-      console.log(`🚀 PNG 변환 시작: ${regionInfo.팀명 || regionInfo.지역 || 'unknown'}`);
-      
-      // 로컬 환경에서만 PNG 변환
-      const browser = await puppeteer.launch({
-        headless: "new",
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-      });
-      
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1000, height: 1000 });
-      
-      // SVG 내용을 HTML로 래핑 (한글 시스템 폰트 사용)
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { 
-              margin: 0; 
-              padding: 0; 
-              font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif;
-            }
-            svg { 
-              display: block; 
-              font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif;
-            }
-            svg text {
-              font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif !important;
-            }
-          </style>
-        </head>
-        <body>
-          ${svgContent}
-        </body>
-        </html>
-      `;
-      
-      // Google Fonts에서 Freesentation 폰트를 로드하는 HTML
-      const finalHtmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <link rel="preconnect" href="https://fonts.googleapis.com">
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-          <style>
-            @import url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-4Regular.woff2') format('woff2');
-            @import url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-5Medium.woff2') format('woff2');
-            @import url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-7Bold.woff2') format('woff2');
-            @import url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-9Black.woff2') format('woff2');
-            
-            @font-face {
-              font-family: 'Freesentation';
-              src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-4Regular.woff2') format('woff2'),
-                   url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-4Regular.woff') format('woff');
-              font-weight: 400;
-              font-style: normal;
-              font-display: block;
-            }
-            
-            @font-face {
-              font-family: 'Freesentation';
-              src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-5Medium.woff2') format('woff2'),
-                   url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-5Medium.woff') format('woff');
-              font-weight: 500;
-              font-style: normal;
-              font-display: block;
-            }
-            
-            @font-face {
-              font-family: 'Freesentation';
-              src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-7Bold.woff2') format('woff2'),
-                   url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-7Bold.woff') format('woff');
-              font-weight: 700;
-              font-style: normal;
-              font-display: block;
-            }
-            
-            @font-face {
-              font-family: 'Freesentation';
-              src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-9Black.woff2') format('woff2'),
-                   url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-12@1.0/Freesentation-9Black.woff') format('woff');
-              font-weight: 900;
-              font-style: normal;
-              font-display: block;
-            }
-            
-            body { 
-              margin: 0; 
-              padding: 0; 
-              font-family: 'Freesentation', 'Noto Sans KR', sans-serif;
-            }
-            svg { 
-              display: block; 
-              font-family: 'Freesentation', 'Noto Sans KR', sans-serif;
-            }
-            svg text {
-              font-family: 'Freesentation', 'Noto Sans KR', sans-serif !important;
-            }
-          </style>
-        </head>
-        <body>
-          ${svgContent}
-        </body>
-        </html>
-      `;
-      
-      await page.setContent(finalHtmlContent);
-      
-      // 폰트 및 이미지 로딩 충분한 대기 시간 (3분 타임아웃 대비)
-      await page.waitForTimeout(10000);
-      
-      // 추가로 네트워크 아이들 상태까지 기다리기 (Puppeteer)
-      try {
-        await page.waitForNetworkIdle({ timeout: 30000, idleTime: 2000 });
-      } catch (e) {
-        console.log('⚠️ 네트워크 아이들 대기 타임아웃, 계속 진행');
-      }
-      
-      console.log('✅ 폰트 로딩 대기 완료');
-      
-      // 고정된 파일명으로 PNG 저장 (Vercel 환경 고려)
+      // 팀명 추출 및 안전한 파일명 생성
       const teamName = regionInfo.팀명 || regionInfo.지역 || 'unknown';
       const safeTeamName = (teamName || 'unknown').toString();
       const pngFileName = `${safeTeamName.replace(/[^a-zA-Z0-9가-힣]/g, '_')}.png`;
       
-      // Vercel 환경에서는 /tmp 디렉토리 사용, 로컬에서는 generated-png 사용
-      const pngDir = process.env.VERCEL 
-        ? '/tmp/generated-png'
-        : path.join(__dirname, 'generated-png');
-        
+      // 디렉토리 설정
+      const pngDir = path.join(__dirname, 'generated-png');
       if (!fs.existsSync(pngDir)) {
         fs.mkdirSync(pngDir, { recursive: true });
       }
       
       const pngPath = path.join(pngDir, pngFileName);
-      await page.screenshot({ 
-        path: pngPath, 
-        type: 'png',
-        fullPage: true,
-        omitBackground: false
-      });
       
-      await browser.close();
+      // Sharp를 사용한 SVG → PNG 변환
+      await sharp(Buffer.from(svgContent))
+        .png({
+          quality: 100,
+          compressionLevel: 0,
+          density: 300 // 고해상도
+        })
+        .resize(800, 1200, {
+          fit: 'contain',
+          background: { r: 255, g: 255, b: 255, alpha: 1 }
+        })
+        .toFile(pngPath);
       
-      console.log(`🖼️ PNG 저장됨: ${pngFileName} (${teamName})`);
+      console.log(`🖼️ PNG 저장됨 (Sharp): ${pngFileName} (${teamName})`);
+      return pngPath;
       
     } catch (error) {
-      console.error(`PNG 변환 실패:`, error);
+      console.error(`Sharp PNG 변환 실패:`, error);
+      throw error;
+    }
+  }
+
+  // 데이터 해시 생성 (변경 감지용)
+  generateDataHash() {
+    try {
+      const dataString = JSON.stringify(this.data);
+      const crypto = require('crypto');
+      return crypto.createHash('md5').update(dataString).digest('hex');
+    } catch (error) {
+      console.error('❌ 데이터 해시 생성 실패:', error);
+      return Date.now().toString();
     }
   }
 }

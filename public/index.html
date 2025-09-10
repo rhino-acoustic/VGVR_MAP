@@ -377,6 +377,53 @@
             line-height: 1.6;
         }
 
+        /* 사용자 안내 메시지 스타일 */
+        .user-guide {
+            margin-top: 30px;
+            padding: 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            color: white;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        .guide-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .guide-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .guide-icon {
+            font-size: 2em;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .guide-text {
+            flex: 1;
+        }
+        
+        .guide-text strong {
+            display: block;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+        
+        .guide-text p {
+            margin: 0;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
         @media (max-width: 768px) {
             .image-grid {
                 grid-template-columns: 1fr;
@@ -394,60 +441,70 @@
             .controls, .gallery {
                 padding: 20px;
             }
+            
+            .user-guide {
+                margin-top: 20px;
+                padding: 20px;
+            }
+            
+            .guide-item {
+                flex-direction: column;
+                text-align: center;
+                padding: 15px;
+            }
+            
+            .guide-icon {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🗺️ 지역별 지도 이미지 생성기</h1>
-            <p>스프레드시트 데이터를 기반으로 지역별 맞춤 지도를 생성합니다</p>
+            <h1>🗺️ VGVR 지역별 팀 이미지 생성기</h1>
+            <p>Google Sheets 데이터를 기반으로 지역별 맞춤 지도를 생성하세요</p>
         </div>
 
         <div class="controls">
             <div class="control-section">
-                <h3>📊 Google Sheets에서 이미지 생성</h3>
-                <button id="generateFromSheetsBtn" class="generate-btn">
-                    📊 이미지 생성하기
+                <h3>🎯 이미지 생성</h3>
+                <button id="generateBtn" class="generate-btn">
+                    🖼️ 이미지 생성하기
                 </button>
+                <p class="control-description">
+                    Google Sheets 데이터를 기반으로 PNG 이미지를 생성합니다.
+                </p>
             </div>
 
             <div id="status" class="status"></div>
         </div>
 
         <div class="gallery">
-            <h2>생성된 지역별 지도</h2>
+            <h2>🖼️ 생성된 팀별 이미지</h2>
             <div id="imageGrid" class="image-grid">
                 <div class="empty-state">
                     <h3>아직 생성된 이미지가 없습니다</h3>
-                    <p>위의 "이미지 생성하기" 버튼을 클릭해서<br>지역별 맞춤 지도를 생성해보세요!</p>
+                    <p>위의 "이미지 생성하기" 버튼을 클릭해주세요!</p>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const generateFromSheetsBtn = document.getElementById('generateFromSheetsBtn');
+        const generateBtn = document.getElementById('generateBtn');
         const status = document.getElementById('status');
         const imageGrid = document.getElementById('imageGrid');
-        const sheetsUrl = document.getElementById('sheetsUrl');
-        const sheetsRange = document.getElementById('sheetsRange');
 
         // 페이지 로드시 기존 이미지 불러오기
         window.addEventListener('load', () => {
             loadImages();
         });
 
-        // Google Sheets 이미지 생성 버튼 클릭
-        generateFromSheetsBtn.addEventListener('click', async () => {
-            // 고정된 스프레드시트 URL과 A:Z 범위 사용
-            const spreadsheetId = 'https://docs.google.com/spreadsheets/d/1IvnBd4cr81HDzEY-AZYeB8g5ogPsWT0Vjhf_0WWAzQ0/edit?gid=0#gid=0';
-            const range = 'A:Z';
-
-            await generateImages('/api/generate-from-sheets', generateFromSheetsBtn, '📊 이미지 생성하기', {
-                spreadsheetId: spreadsheetId,
-                range: range
-            });
+        // 이미지 생성 버튼 클릭
+        generateBtn.addEventListener('click', async () => {
+            await generateImages('/api/generate-images', generateBtn, '🖼️ 이미지 생성하기');
         });
 
         // 공통 이미지 생성 함수
@@ -519,17 +576,17 @@
             }
         }
 
-        // PNG 이미지 목록 불러오기 (한 열로 나열)
+        // PNG 이미지 목록 불러오기
         async function loadImages() {
             try {
                 const response = await fetch('/api/png-files');
-                const pngFiles = await response.json();
-
-                if (pngFiles.length === 0) {
+                const data = await response.json();
+                
+                if (!data.files || data.files.length === 0) {
                     imageGrid.innerHTML = `
                         <div class="empty-state">
                             <h3>아직 생성된 PNG 이미지가 없습니다</h3>
-                            <p>위의 "이미지 생성하기" 버튼을 클릭해서<br>PNG 이미지를 생성해보세요!</p>
+                            <p>위의 "이미지 생성하기" 버튼을 클릭해주세요!</p>
                         </div>
                     `;
                     return;
@@ -538,25 +595,50 @@
                 // PNG 이미지를 한 열로 나열
                 imageGrid.innerHTML = `
                     <div class="png-gallery">
-                        ${pngFiles.map(file => `
+                        ${data.files.map(file => `
                             <div class="png-image-item">
-                                <img src="/generated-png/${file.fileName}" alt="${file.teamName}" class="png-image" />
+                                <img src="/generated-png/${file}" alt="${file.replace('.png', '')}" class="png-image" />
                                 <div class="png-info">
-                                    <h3>${file.teamName}</h3>
+                                    <h3>${file.replace('.png', '')}</h3>
+                                    <button onclick="downloadPng('/generated-png/${file}', '${file.replace('.png', '')}')" class="download-btn">
+                                        PNG 다운로드
+                                    </button>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
                 `;
-
+                
+                showStatus(`${data.files.length}개의 이미지를 로드했습니다.`, 'success');
+                
             } catch (error) {
                 console.error('PNG 이미지 목록 불러오기 오류:', error);
                 imageGrid.innerHTML = `
                     <div class="empty-state">
-                        <h3>PNG 이미지 목록을 불러올 수 없습니다</h3>
-                        <p>서버 연결을 확인해주세요.</p>
+                        <h3>아직 생성된 PNG 이미지가 없습니다</h3>
+                        <p>위의 "이미지 생성하기" 버튼을 클릭해주세요!</p>
                     </div>
                 `;
+            }
+        }
+
+        // PNG 다운로드 함수
+        async function downloadPng(url, fileName) {
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                
+                const downloadUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `${fileName}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl);
+            } catch (error) {
+                console.error('다운로드 실패:', error);
+                alert('다운로드에 실패했습니다.');
             }
         }
 

@@ -5,14 +5,13 @@ if (process.env.NODE_ENV !== 'production') {
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const generateAllImages = require('./generate-images');
-const { DataProcessor } = require('./data-processor');
+const DataProcessor = require('./data-processor');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 정적 파일 제공
-app.use('/generated-maps', express.static(path.join(__dirname, 'generated-maps')));
+app.use('/generated-png', express.static(path.join(__dirname, 'generated-png')));
 app.use(express.static('public'));
 app.use(express.json());
 
@@ -21,179 +20,56 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 생성된 파일 목록 API
-app.get('/api/files', (req, res) => {
+// 이미지 생성 API
+app.post('/api/generate-images', async (req, res) => {
   try {
-    if (fs.existsSync('generated-files.json')) {
-      const fileList = JSON.parse(fs.readFileSync('generated-files.json', 'utf8'));
-      res.json(fileList);
-    } else {
-      res.json([]);
-    }
-  } catch (error) {
-    console.error('파일 목록 읽기 오류:', error);
-    res.status(500).json({ error: '파일 목록을 불러올 수 없습니다.' });
-  }
-});
-
-// 이미지 생성 API (CSV 파일 사용)
-app.post('/api/generate', async (req, res) => {
-  try {
-    console.log('🚀 이미지 생성 요청을 받았습니다...');
-    const savedFiles = await generateAllImages();
+    console.log('🚀 PNG 이미지 생성 요청을 받았습니다...');
     
-    if (savedFiles && savedFiles.length > 0) {
-      res.json({ 
-        success: true, 
-        message: `${savedFiles.length}개의 이미지가 생성되었습니다.`,
-        files: savedFiles.length
-      });
-    } else {
-      res.status(500).json({ 
-        success: false, 
-        message: '이미지 생성에 실패했습니다.' 
-      });
-    }
-  } catch (error) {
-    console.error('이미지 생성 오류:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: '이미지 생성 중 오류가 발생했습니다.' 
-    });
-  }
-});
-
-// Google Sheets에서 이미지 생성 API
-app.post('/api/generate-from-sheets', async (req, res) => {
-  try {
-    const { spreadsheetId, range } = req.body;
-    
-    if (!spreadsheetId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Google Sheets ID가 필요합니다.' 
-      });
-    }
-
-    console.log('🚀 Google Sheets에서 이미지 생성 요청을 받았습니다...');
-    
-    const DataProcessor = require('./data-processor');
     const processor = new DataProcessor();
+    const success = await processor.loadGoogleSheetsData();
     
-    // SVG 템플릿 로드
-    if (!processor.loadSvgTemplate()) {
-      return res.status(500).json({ 
-        success: false, 
-        message: 'SVG 템플릿 로드에 실패했습니다.' 
-      });
-    }
-    
-    // Google Sheets에서 데이터 로드 (A:Z50 범위로 제한)
-    await processor.loadGoogleSheetsData(spreadsheetId, range || 'A:Z50');
-    
-    // 모든 지역의 SVG 생성 및 저장
-    const savedFiles = await processor.saveSvgsToFiles('generated-maps');
-    
-    if (savedFiles && savedFiles.length > 0) {
-      // 생성된 파일 목록을 JSON으로 저장
-      const fileList = savedFiles.map(file => ({
-        fileName: file.fileName,
-        regionName: file.regionInfo.지역,
-        day: file.regionInfo.요일,
-        time: file.regionInfo.시간,
-        place: file.regionInfo.장소,
-        meetingPoint: file.regionInfo.집합장소,
-        parking: file.regionInfo.주차장,
-        coordinates: file.regionInfo['집합장소(구글맵)'],
-        filePath: file.filePath.replace(/\\/g, '/')
-      }));
-      
-      fs.writeFileSync('generated-files.json', JSON.stringify(fileList, null, 2));
-      
-      res.json({ 
-        success: true, 
-        message: `Google Sheets에서 ${savedFiles.length}개의 이미지가 생성되었습니다.`,
-        files: savedFiles.length
-      });
+    if (success) {
+      const result = await processor.generateAllImages();
+      if (result.success) {
+        res.json({
+          success: true,
+          message: '이미지 생성이 완료되었습니다.',
+          files: result.generatedFiles || 0
+        });
+      } else {
+        throw new Error(result.error);
+      }
     } else {
-      res.status(500).json({ 
-        success: false, 
-        message: '이미지 생성에 실패했습니다.' 
-      });
+      throw new Error('Google Sheets 데이터 로드 실패');
     }
+    
   } catch (error) {
-    console.error('Google Sheets 이미지 생성 오류:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: `Google Sheets 이미지 생성 중 오류: ${error.message}` 
+    console.error('❌ 이미지 생성 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
-  }
-});
-
-// SVG 콘텐츠 제공 API (Vercel 환경용)
-app.get('/api/svg/:teamName', async (req, res) => {
-  try {
-    const { teamName } = req.params;
-    
-    // 최근 생성된 SVG 데이터에서 해당 팀 찾기
-    // 실제로는 메모리나 캐시에서 가져와야 하지만, 임시로 재생성
-    const dataProcessor = new DataProcessor();
-    await dataProcessor.loadFromGoogleSheets();
-    const svgs = await dataProcessor.generateAllRegionalSvgs();
-    
-    const targetSvg = svgs.find(svg => 
-      svg.regionInfo.팀명 === decodeURIComponent(teamName) ||
-      svg.regionInfo.지역 === decodeURIComponent(teamName)
-    );
-    
-    if (targetSvg) {
-      res.setHeader('Content-Type', 'image/svg+xml');
-      res.send(targetSvg.content);
-    } else {
-      res.status(404).json({ error: '해당 팀의 SVG를 찾을 수 없습니다.' });
-    }
-  } catch (error) {
-    console.error('SVG 제공 오류:', error);
-    res.status(500).json({ error: 'SVG를 불러올 수 없습니다.' });
   }
 });
 
 // PNG 파일 목록 API
 app.get('/api/png-files', (req, res) => {
   try {
-    // 환경에 관계없이 PNG 디렉토리 확인
-    const pngDir = process.env.VERCEL 
-      ? '/tmp/generated-png'
-      : path.join(__dirname, 'generated-png');
+    const pngDir = path.join(__dirname, 'generated-png');
     
     if (!fs.existsSync(pngDir)) {
-      return res.json([]);
+      return res.json({ files: [] });
     }
 
     const files = fs.readdirSync(pngDir)
-      .filter(file => file.endsWith('.png'))
-      .map(file => {
-        const teamName = file.replace('.png', '');
-        return {
-          fileName: file,
-          teamName: teamName,
-          filePath: path.join(pngDir, file)
-        };
-      });
+      .filter(file => file.endsWith('.png'));
 
-    res.json(files);
+    res.json({ files });
   } catch (error) {
     console.error('PNG 파일 목록 불러오기 오류:', error);
     res.status(500).json({ error: 'PNG 파일 목록을 불러올 수 없습니다.' });
   }
 });
-
-// PNG 파일 정적 서빙
-// PNG 파일 정적 서빙 (Vercel 환경 고려)
-const pngStaticDir = process.env.VERCEL 
-  ? '/tmp/generated-png'
-  : path.join(__dirname, 'generated-png');
-app.use('/generated-png', express.static(pngStaticDir));
 
 app.listen(PORT, () => {
   console.log(`🌐 서버가 포트 ${PORT}에서 실행 중입니다.`);
