@@ -2,10 +2,9 @@
   "name": "vgvr-map-final",
   "version": "1.0.0",
   "description": "VGVR Map Image Generator with Sharp",
-  "main": "server.js",
+  "main": "public/index.html",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "vercel dev",
     "vercel-build": "echo 'Build complete'"
   },
   "engines": {

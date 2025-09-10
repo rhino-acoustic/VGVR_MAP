@@ -1,23 +1,26 @@
 {
   "version": 2,
-  "functions": {
-    "api/generate-images.js": {
-      "maxDuration": 180
+  "builds": [
+    {
+      "src": "public/**/*",
+      "use": "@vercel/static"
     },
-    "api/png-files.js": {
-      "maxDuration": 60
-    },
-    "api/get-image.js": {
-      "maxDuration": 60
-    },
-    "api/test.js": {
-      "maxDuration": 30
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node",
+      "config": {
+        "maxDuration": 180
+      }
     }
-  },
+  ],
   "routes": [
     {
       "src": "/generated-png/(.*)",
       "dest": "/api/get-image?filename=$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
     }
   ]
 }
