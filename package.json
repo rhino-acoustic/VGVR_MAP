@@ -1,5 +1,5 @@
 {
-  "name": "vgvr-map-generator",
+  "name": "vgvr-map-final",
   "version": "1.0.0",
   "description": "VGVR Map Image Generator with Sharp",
   "main": "server.js",
