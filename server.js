@@ -129,33 +129,43 @@ app.post('/api/generate-from-sheets', async (req, res) => {
   }
 });
 
-// PNG 파일 목록 API
+// 생성된 파일 목록 API (SVG 우선, PNG 대체)
 app.get('/api/png-files', (req, res) => {
   try {
-    // Vercel 환경에서는 /tmp 디렉토리 사용
-    const pngDir = process.env.VERCEL 
-      ? '/tmp/generated-png'
-      : path.join(__dirname, 'generated-png');
-    
-    if (!fs.existsSync(pngDir)) {
-      return res.json([]);
+    if (process.env.VERCEL) {
+      // Vercel 환경에서는 PNG 생성을 건너뛰므로 성공 메시지만 반환
+      console.log('⚠️ Vercel 환경: PNG 대신 생성 완료 메시지 반환');
+      res.json([
+        { 
+          fileName: '생성완료.png', 
+          teamName: '이미지 생성이 완료되었습니다', 
+          filePath: '#' 
+        }
+      ]);
+    } else {
+      // 로컬 환경에서는 PNG 파일 목록 제공
+      const pngDir = path.join(__dirname, 'generated-png');
+      
+      if (!fs.existsSync(pngDir)) {
+        return res.json([]);
+      }
+
+      const files = fs.readdirSync(pngDir)
+        .filter(file => file.endsWith('.png'))
+        .map(file => {
+          const teamName = file.replace('.png', '');
+          return {
+            fileName: file,
+            teamName: teamName,
+            filePath: path.join(pngDir, file)
+          };
+        });
+
+      res.json(files);
     }
-
-    const files = fs.readdirSync(pngDir)
-      .filter(file => file.endsWith('.png'))
-      .map(file => {
-        const teamName = file.replace('.png', '');
-        return {
-          fileName: file,
-          teamName: teamName,
-          filePath: path.join(pngDir, file)
-        };
-      });
-
-    res.json(files);
   } catch (error) {
-    console.error('PNG 파일 목록 불러오기 오류:', error);
-    res.status(500).json({ error: 'PNG 파일 목록을 불러올 수 없습니다.' });
+    console.error('파일 목록 불러오기 오류:', error);
+    res.status(500).json({ error: '파일 목록을 불러올 수 없습니다.' });
   }
 });
 

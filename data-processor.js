@@ -608,23 +608,18 @@ class DataProcessor {
       // 간단한 구현을 위해 puppeteer 사용
       const puppeteer = require('puppeteer');
       
-      // Vercel 환경에서 Chromium 사용
-      let browser;
+      // Vercel 환경에서는 PNG 변환 건너뛰기 (용량 제한)
       if (process.env.VERCEL) {
-        const chromium = require('@sparticuz/chromium');
-        browser = await puppeteer.launch({
-          args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
-          defaultViewport: chromium.defaultViewport,
-          executablePath: await chromium.executablePath(),
-          headless: chromium.headless,
-        });
-      } else {
-        // 로컬 환경
-        browser = await puppeteer.launch({
-          headless: "new",
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-        });
+        console.log('⚠️ Vercel 환경: PNG 변환을 건너뜁니다 (용량 제한)');
+        console.log(`📄 SVG 파일만 생성됨: ${regionInfo.팀명}`);
+        return;
       }
+      
+      // 로컬 환경에서만 PNG 변환
+      const browser = await puppeteer.launch({
+        headless: "new",
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+      });
       
       const page = await browser.newPage();
       await page.setViewport({ width: 1000, height: 1000 });
