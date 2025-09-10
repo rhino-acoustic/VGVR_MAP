@@ -276,10 +276,20 @@ class DataProcessor {
       console.log(`🗺️ Google Maps Static API URL 생성: ${teamName} (${lat}, ${lng}) -> 크기: ${mapWidth}x${mapHeight}`);
       console.log(`📍 지도 URL: ${mapUrl}`);
       
-      // Google Maps 이미지를 다운로드해서 base64로 인코딩
+      // Google Maps 이미지를 다운로드해서 base64로 인코딩 (5초 타임아웃)
       let base64Image = '';
       try {
-        const response = await fetch(mapUrl);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+        
+        const response = await fetch(mapUrl, { 
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'VGVR-Map-Generator/1.0'
+          }
+        });
+        clearTimeout(timeoutId);
+        
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
