@@ -55,3 +55,4 @@ import.env
 vercel-env-variables.txt
 vercel-environment-variables.txt
 env-values-only.txt
+.vercel

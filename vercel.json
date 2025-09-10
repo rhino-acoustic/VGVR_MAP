@@ -11,8 +11,20 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/server.js"
+      "src": "/api/png-files",
+      "dest": "/api/png-files.js"
+    },
+    {
+      "src": "/api/generate-from-sheets",
+      "dest": "/api/generate-from-sheets.js"
+    },
+    {
+      "src": "/api/generate-images",
+      "dest": "/api/generate-images.js"
+    },
+    {
+      "src": "/generated-png/(.*)",
+      "dest": "/generated-png/$1"
     },
     {
       "src": "/(.*)",
