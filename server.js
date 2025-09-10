@@ -6,6 +6,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const generateAllImages = require('./generate-images');
+const { DataProcessor } = require('./data-processor');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -126,6 +127,34 @@ app.post('/api/generate-from-sheets', async (req, res) => {
       success: false, 
       message: `Google Sheets 이미지 생성 중 오류: ${error.message}` 
     });
+  }
+});
+
+// SVG 콘텐츠 제공 API (Vercel 환경용)
+app.get('/api/svg/:teamName', async (req, res) => {
+  try {
+    const { teamName } = req.params;
+    
+    // 최근 생성된 SVG 데이터에서 해당 팀 찾기
+    // 실제로는 메모리나 캐시에서 가져와야 하지만, 임시로 재생성
+    const dataProcessor = new DataProcessor();
+    await dataProcessor.loadFromGoogleSheets();
+    const svgs = await dataProcessor.generateAllRegionalSvgs();
+    
+    const targetSvg = svgs.find(svg => 
+      svg.regionInfo.팀명 === decodeURIComponent(teamName) ||
+      svg.regionInfo.지역 === decodeURIComponent(teamName)
+    );
+    
+    if (targetSvg) {
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.send(targetSvg.content);
+    } else {
+      res.status(404).json({ error: '해당 팀의 SVG를 찾을 수 없습니다.' });
+    }
+  } catch (error) {
+    console.error('SVG 제공 오류:', error);
+    res.status(500).json({ error: 'SVG를 불러올 수 없습니다.' });
   }
 });
 

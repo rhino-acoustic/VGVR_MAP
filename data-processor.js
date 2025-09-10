@@ -600,9 +600,12 @@ class DataProcessor {
 
     for (const svg of svgs) {
       try {
-        // SVG 파일 저장 없이 바로 PNG 변환
-        console.log(`🔄 PNG 변환 중: ${svg.regionInfo.팀명}`);
-        await this.convertSvgToPng(svg.content, svg.regionInfo, svg.fileName);
+        // Vercel 환경에서는 PNG 변환 건너뛰기 (Puppeteer 이슈)
+        console.log(`📄 SVG 생성 완료: ${svg.regionInfo.팀명}`);
+        // PNG 변환은 로컬 환경에서만 수행
+        if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
+          await this.convertSvgToPng(svg.content, svg.regionInfo, svg.fileName);
+        }
         
         savedFiles.push({
           fileName: svg.fileName,
