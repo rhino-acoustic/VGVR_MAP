@@ -19,14 +19,4 @@
       "dest": "/server.js"
     }
   ],
-  "crons": [
-    {
-      "path": "/api/generate-images",
-      "schedule": "0 19 * * *"
-    },
-    {
-      "path": "/api/generate-images", 
-      "schedule": "0 5 * * *"
-    }
-  ]
 }
