@@ -33,6 +33,16 @@ export default async function handler(req, res) {
     
     const processor = new DataProcessor();
     
+    // 메서드 존재 여부 확인
+    console.log('🔍 DataProcessor 메서드 체크:');
+    console.log('- generateAllImages:', typeof processor.generateAllImages);
+    console.log('- loadGoogleSheetsData:', typeof processor.loadGoogleSheetsData);
+    console.log('- 전체 메서드 목록:', Object.getOwnPropertyNames(DataProcessor.prototype));
+    
+    if (typeof processor.generateAllImages !== 'function') {
+      throw new Error('generateAllImages 메서드가 존재하지 않습니다.');
+    }
+    
     console.log('📊 Google Sheets 데이터 로드 시작...');
     const success = await processor.loadGoogleSheetsData();
     console.log('📊 Google Sheets 데이터 로드 결과:', success);
