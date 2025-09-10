@@ -366,7 +366,7 @@ class DataProcessor {
     const originalColor = regionInfo.지역컬러 || '#F1F9BB';
     const gradientColors = this.createGradientColors(originalColor);
     const teamName = regionInfo.팀명 || regionInfo.지역 || 'default';
-    const gradientId = `gradient_${teamName.replace(/[^a-zA-Z0-9가-힣]/g, '')}`;
+    const gradientId = `gradient_${(teamName || 'unknown').replace(/[^a-zA-Z0-9가-힣]/g, '')}`;
     
     console.log(`🎨 그라데이션 적용: ${teamName} - 기본: "${originalColor}" -> 밝게: "${gradientColors.lighter}" / 어둡게: "${gradientColors.darker}"`);
     
@@ -567,7 +567,7 @@ class DataProcessor {
     const baseName = day ? `${teamName}_${day}` : teamName;
     
     // 파일명에 사용할 수 없는 문자 제거
-    const safeName = baseName.replace(/[^a-zA-Z0-9가-힣]/g, '_');
+    const safeName = (baseName || 'unknown').replace(/[^a-zA-Z0-9가-힣]/g, '_');
     return `${safeName}_${Date.now()}_${index}.svg`;
   }
 
@@ -609,9 +609,9 @@ class DataProcessor {
       const puppeteer = require('puppeteer');
       
       // Vercel 환경에서는 PNG 변환 건너뛰기 (용량 제한)
-      if (process.env.VERCEL) {
-        console.log('⚠️ Vercel 환경: PNG 변환을 건너뜁니다 (용량 제한)');
-        console.log(`📄 SVG 파일만 생성됨: ${regionInfo.팀명}`);
+      if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+        console.log('⚠️ Vercel/Production 환경: PNG 변환을 건너뜁니다 (용량 제한)');
+        console.log(`📄 SVG 파일만 생성됨: ${regionInfo.팀명 || regionInfo.지역 || 'unknown'}`);
         return;
       }
       
@@ -729,7 +729,8 @@ class DataProcessor {
       
       // 고정된 파일명으로 PNG 저장 (Vercel 환경 고려)
       const teamName = regionInfo.팀명 || regionInfo.지역 || 'unknown';
-      const pngFileName = `${teamName.replace(/[^a-zA-Z0-9가-힣]/g, '_')}.png`;
+      const safeTeamName = (teamName || 'unknown').toString();
+      const pngFileName = `${safeTeamName.replace(/[^a-zA-Z0-9가-힣]/g, '_')}.png`;
       
       // Vercel 환경에서는 /tmp 디렉토리 사용, 로컬에서는 generated-png 사용
       const pngDir = process.env.VERCEL 
