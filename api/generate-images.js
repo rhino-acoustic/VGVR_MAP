@@ -1,5 +1,3 @@
-const DataProcessor = require('../data-processor');
-
 export default async function handler(req, res) {
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -22,6 +20,16 @@ export default async function handler(req, res) {
   try {
     console.log('🚀 Vercel에서 PNG 이미지 생성 요청을 받았습니다...');
     console.log('📊 환경: Vercel =', !!process.env.VERCEL, ', Node =', process.version);
+    
+    // CommonJS require 방식으로 모듈 로드
+    let DataProcessor;
+    try {
+      DataProcessor = require('../data-processor');
+      console.log('✅ DataProcessor 모듈 로드 성공');
+    } catch (moduleError) {
+      console.error('❌ DataProcessor 모듈 로드 실패:', moduleError.message);
+      throw new Error(`모듈 로드 실패: ${moduleError.message}`);
+    }
     
     const processor = new DataProcessor();
     
