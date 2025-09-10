@@ -608,10 +608,23 @@ class DataProcessor {
       // 간단한 구현을 위해 puppeteer 사용
       const puppeteer = require('puppeteer');
       
-      const browser = await puppeteer.launch({
-        headless: "new",
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-      });
+      // Vercel 환경에서 Chromium 사용
+      let browser;
+      if (process.env.VERCEL) {
+        const chromium = require('@sparticuz/chromium');
+        browser = await puppeteer.launch({
+          args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
+          defaultViewport: chromium.defaultViewport,
+          executablePath: await chromium.executablePath(),
+          headless: chromium.headless,
+        });
+      } else {
+        // 로컬 환경
+        browser = await puppeteer.launch({
+          headless: "new",
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+        });
+      }
       
       const page = await browser.newPage();
       await page.setViewport({ width: 1000, height: 1000 });
