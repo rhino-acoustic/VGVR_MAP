@@ -1,0 +1,96 @@
+name: 🗺️ VegaVery Map Generator - Auto Schedule
+
+on:
+  # 스케줄 실행 (UTC 기준)
+  schedule:
+    # 매일 새벽 4시 (KST) = 19:00 UTC
+    - cron: '0 19 * * *'
+    # 매일 오후 2시 (KST) = 05:00 UTC  
+    - cron: '0 5 * * *'
+  
+  # 수동 실행 가능
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: '실행 이유'
+        required: false
+        default: '수동 실행'
+
+jobs:
+  generate-images:
+    name: 🖼️ 이미지 자동 생성
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🚀 워크플로우 시작
+      run: |
+        echo "🗺️ VegaVery Map Generator 자동 실행 시작"
+        echo "⏰ 실행 시간: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+        echo "📍 한국 시간: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "🔧 수동 실행 - 이유: ${{ github.event.inputs.reason }}"
+        else
+          echo "⏰ 스케줄 실행"
+        fi
+
+    - name: 📞 Vercel API 호출
+      run: |
+        echo "🌐 Vercel 배포된 API 엔드포인트 호출 중..."
+        
+        # API 호출 및 응답 저장
+        response=$(curl -s -w "\n%{http_code}" "https://vgvr-map.vercel.app/api/generate-images")
+        http_code=$(echo "$response" | tail -n1)
+        body=$(echo "$response" | head -n -1)
+        
+        echo "📊 HTTP 상태 코드: $http_code"
+        echo "📝 응답 내용:"
+        echo "$body"
+        
+        # 성공 여부 확인
+        if [ "$http_code" -eq 200 ]; then
+          echo "✅ 이미지 생성 성공!"
+          
+          # JSON 응답에서 생성된 이미지 수 추출 (jq가 없으면 grep 사용)
+          if command -v jq >/dev/null 2>&1; then
+            total=$(echo "$body" | jq -r '.results.totalGenerated // "알 수 없음"')
+            echo "🖼️ 총 생성된 이미지: $total개"
+          else
+            echo "🖼️ 이미지 생성 완료 (상세 정보는 응답 내용 참조)"
+          fi
+          
+        else
+          echo "❌ 이미지 생성 실패 (HTTP $http_code)"
+          exit 1
+        fi
+
+    - name: 🔍 생성된 이미지 확인
+      run: |
+        echo "🖼️ 생성된 PNG 이미지 URL 목록:"
+        echo "https://vgvr-map.vercel.app/generated-png/용인팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/구덕팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/신촌팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/사직팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/하남팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/양산팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/수원팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/부천팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/서면팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/반포팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/목동팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/잠실팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/의정부팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/해운대팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/인천팀.png"
+        echo "https://vgvr-map.vercel.app/generated-png/파주팀.png"
+
+    - name: 📊 실행 완료 알림
+      run: |
+        echo "🎉 VegaVery Map Generator 자동 실행 완료!"
+        echo "⏰ 완료 시간: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+        echo "📍 한국 시간: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+        echo ""
+        echo "🔄 다음 자동 실행 예정:"
+        echo "  • 매일 새벽 4시 (KST)"
+        echo "  • 매일 오후 2시 (KST)"
+        echo ""
+        echo "🌐 메인 페이지: https://vgvr-map.vercel.app"
